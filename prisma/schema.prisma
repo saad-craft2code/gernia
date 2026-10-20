@@ -1,0 +1,123 @@
+// Prisma schema for AGUS SYSTEMS — Prospect Information Questionnaire app
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("VERIFIER") // VERIFIER | LICENSE_AGENT
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  casesCreated  Case[]    @relation("VerifierCases")
+  casesAssigned Case[]    @relation("AgentCases")
+  notes         CaseNote[]
+  auditLogs     AuditLog[]
+}
+
+model Case {
+  id                  String    @id @default(cuid())
+  caseNumber          String    @unique // e.g. AGUS-2026-00001
+
+  // SECTION 1 — Client / Contact Information
+  representativeName  String?
+  prospectName        String?
+  prospectPhone       String?
+  prospectEmail       String?
+  prospectState       String? // US state code
+
+  // SECTION 2 — Coverage Need
+  coverageType        String? // SELF | FAMILY | GROUP
+  familyMemberCount   Int?
+  familyMembers       Json?   // [{ name, dob, gender, smoking }]
+
+  // SECTION 3 — Health / Medical
+  hasMedicalConditions String? // "YES" | "NO"
+  medicalConditionsDetails String?
+  isPregnant           String? // "YES" | "NO"
+  doctorVisitFrequency String?
+  lastDoctorVisit      String? // MM/DD/YYYY
+  nextAppointment      String? // MM/DD/YYYY
+  hasMentalHealth      String? // "YES" | "NO"
+  mentalHealthDetails  String?
+
+  // SECTION 4 — Budget / Current Situation
+  previousInsuranceCost String? // numeric string e.g. "450.00"
+  expectedMonthlyCost   String?
+  expectedCostIncrease  String?
+  cobraOffered          String? // "YES" | "NO"
+
+  // SECTION 5 — Timing / Urgency
+  timingUrgency         String? // ASAP | 30_DAYS | 1_3_MONTHS | NO_DATE
+  preferredStartDate    String? // MM/DD/YYYY
+  additionalNotes       String?
+
+  // SECTION 6 — Representative Checklist
+  checklistHealthyCandidate   Boolean @default(false)
+  checklistHouseholdProvided  Boolean @default(false)
+  checklistStateEligibility    Boolean @default(false)
+
+  // Handoff & lifecycle
+  verifierId          String
+  licenseAgentId      String?
+  status              String   @default("CREATED") // CREATED | TRANSFERRED | ACCEPTED | RESOLVED | REASSIGNED
+  transferredAt       DateTime?
+  acceptedAt          DateTime?
+  resolvedAt          DateTime?
+  callDurationSec     Int      @default(0)
+  recordingUrl        String?
+  laNotes             String?
+  archived            Boolean  @default(false)
+  archivedAt          DateTime?
+
+  // Relationships
+  verifier            User      @relation("VerifierCases", fields: [verifierId], references: [id])
+  licenseAgent        User?     @relation("AgentCases", fields: [licenseAgentId], references: [id])
+  notes               CaseNote[]
+  auditLogs           AuditLog[]
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([verifierId])
+  @@index([licenseAgentId])
+  @@index([status])
+  @@index([archived])
+}
+
+model CaseNote {
+  id        String   @id @default(cuid())
+  caseId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([caseId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  caseId    String
+  actorId   String?
+  action    String // CREATE, TRANSFER, ACCEPT, RESOLVE, REASSIGN, ARCHIVE, NOTE_ADD, RECORDING_UPLOAD
+  details   String?
+  createdAt DateTime @default(now())
+
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actor     User?    @relation(fields: [actorId], references: [id])
+
+  @@index([caseId])
+}
