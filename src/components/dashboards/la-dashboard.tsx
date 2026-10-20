@@ -17,7 +17,7 @@ import {
 import { StatusBadge } from '@/components/shared/badges'
 import { StatCard } from '@/components/shared/stat-card'
 import { relativeTime, formatDuration } from '@/lib/dates'
-import { CaseDetailModal } from '@/components/shared/case-detail-modal'
+import { CaseDetailView } from '@/components/shared/case-detail-view'
 import { ReportsView } from '@/components/shared/reports-view'
 
 export function LaDashboard() {
@@ -29,7 +29,7 @@ export function LaDashboard() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'TRANSFERRED' | 'ACCEPTED' | 'RESOLVED'>('all')
   const [detailCase, setDetailCase] = useState<Case | null>(null)
-  const [view, setView] = useState<'today' | 'archive' | 'reports'>('today')
+  const [view, setView] = useState<'today' | 'archive' | 'reports' | 'detail'>('today')
   const [stats, setStats] = useState<{
     todayCount: number
     pendingCount: number
@@ -125,6 +125,25 @@ export function LaDashboard() {
 
   function openDetail(c: Case) {
     setDetailCase(c)
+    setView('detail')
+  }
+
+  // Full-screen case detail view (early return — replaces the modal)
+  if (view === 'detail' && detailCase) {
+    return (
+      <CaseDetailView
+        caseId={detailCase.id}
+        onClose={() => {
+          setDetailCase(null)
+          setView('today')
+        }}
+        onMutated={() => {
+          loadCases()
+          loadStats()
+          if (view === 'archive') loadArchived()
+        }}
+      />
+    )
   }
 
   return (
@@ -266,18 +285,6 @@ export function LaDashboard() {
             </TabsContent>
           </Tabs>
         </>
-      )}
-
-      {detailCase && (
-        <CaseDetailModal
-          caseId={detailCase.id}
-          onClose={() => setDetailCase(null)}
-          onMutated={() => {
-            loadCases()
-            loadStats()
-            if (view === 'archive') loadArchived()
-          }}
-        />
       )}
     </div>
   )

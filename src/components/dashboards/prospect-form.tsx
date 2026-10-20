@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, FormEvent } from 'react'
-import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,10 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import {
   US_STATES, COVERAGE_TYPES, GENDERS, YES_NO, TIMING_OPTIONS, NON_SALE_STATES,
 } from '@/lib/constants'
-import {
-  formatPhoneInput, isValidPhone, isValidEmail, isValidUSDate,
-  normalizeCurrency, formatCurrencyInput,
-} from '@/lib/validation'
+import { formatPhoneInput, formatCurrencyInput } from '@/lib/validation'
 import {
   User, Phone, Heart, DollarSign, Clock, CheckSquare,
   Save, X, Plus, Trash2, Loader2, AlertTriangle, FileText, ShieldCheck,
@@ -85,35 +81,9 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
   async function save(e: FormEvent) {
     e.preventDefault()
 
-    // Soft validation — show warnings but don't block if fields missing
-    const issues: string[] = []
-    if (prospectPhone && !isValidPhone(prospectPhone)) {
-      issues.push('Phone number must be 10 digits.')
-    }
-    if (prospectEmail && !isValidEmail(prospectEmail)) {
-      issues.push('Email address is not valid.')
-    }
-    if (lastDoctorVisit && !isValidUSDate(lastDoctorVisit)) {
-      issues.push('Last doctor visit must be MM/DD/YYYY.')
-    }
-    if (nextAppointment && !isValidUSDate(nextAppointment)) {
-      issues.push('Next appointment must be MM/DD/YYYY.')
-    }
-    if (preferredStartDate && !isValidUSDate(preferredStartDate)) {
-      issues.push('Preferred start date must be MM/DD/YYYY.')
-    }
-    if (prospectState && NON_SALE_STATES.includes(prospectState as never)) {
-      issues.push(`Note: AGUS SYSTEMS does NOT sell plans in ${prospectState}.`)
-    }
-    if (issues.length > 0) {
-      toast({
-        title: 'Please check these fields',
-        description: issues.join(' '),
-        variant: 'destructive',
-      })
-      return
-    }
-
+    // Per spec: NO field is mandatory. We save whatever the user entered,
+    // even if phone/email/dates are partial or have an unusual format.
+    // Auto-formatting on input already cleaned up obvious cases (phone).
     setSaving(true)
     try {
       const res = await fetch('/api/cases', {
@@ -121,17 +91,16 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           representativeName, prospectName,
-          prospectPhone: prospectPhone ? normalizePhoneForSave(prospectPhone) : '',
-          prospectEmail, prospectState,
+          prospectPhone, prospectEmail, prospectState,
           coverageType,
           familyMemberCount: familyMembers.length || null,
           familyMembers: familyMembers.filter((m) => m.name.trim()),
           hasMedicalConditions, medicalConditionsDetails, isPregnant,
           doctorVisitFrequency, lastDoctorVisit, nextAppointment,
           hasMentalHealth, mentalHealthDetails,
-          previousInsuranceCost: normalizeCurrency(previousInsuranceCost),
-          expectedMonthlyCost: normalizeCurrency(expectedMonthlyCost),
-          expectedCostIncrease: normalizeCurrency(expectedCostIncrease),
+          previousInsuranceCost: previousInsuranceCost || null,
+          expectedMonthlyCost: expectedMonthlyCost || null,
+          expectedCostIncrease: expectedCostIncrease || null,
           cobraOffered,
           timingUrgency, preferredStartDate, additionalNotes,
           checklistHealthyCandidate, checklistHouseholdProvided, checklistStateEligibility,
@@ -170,7 +139,7 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
               Prospect Information Questionnaire
             </div>
             <div className="text-xs text-stone-500">
-              All fields optional — capture what you have, save, then transfer.
+              All fields optional — save with whatever you have, dates included.
             </div>
           </div>
         </div>
@@ -207,7 +176,7 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
           <Field label="Prospect name">
             <Input value={prospectName} onChange={(e) => setProspectName(e.target.value)} placeholder="e.g. John Smith" className="h-11" />
           </Field>
-          <Field label="Phone number" hint={prospectPhone && !isValidPhone(prospectPhone) ? 'Enter 10 digits' : undefined}>
+          <Field label="Phone number" hint="Optional — auto-formats as you type">
             <Input
               value={prospectPhone}
               onChange={(e) => setProspectPhone(formatPhoneInput(e.target.value))}
@@ -216,7 +185,7 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
               className="h-11"
             />
           </Field>
-          <Field label="Email" hint={prospectEmail && !isValidEmail(prospectEmail) ? 'Invalid email' : undefined}>
+          <Field label="Email" hint="Optional">
             <Input type="email" value={prospectEmail} onChange={(e) => setProspectEmail(e.target.value)} placeholder="john.smith@email.com" className="h-11" />
           </Field>
           <Field label="State">
@@ -355,10 +324,10 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
             <Input value={doctorVisitFrequency} onChange={(e) => setDoctorVisitFrequency(e.target.value)} placeholder="e.g. Once a year, every 6 months, rarely…" className="h-11" />
           </Field>
           <div className="grid sm:grid-cols-2 gap-4">
-            <Field label="Date of last doctor visit" hint="MM/DD/YYYY">
+            <Field label="Date of last doctor visit" hint="Optional — format MM/DD/YYYY">
               <Input value={lastDoctorVisit} onChange={(e) => setLastDoctorVisit(e.target.value)} placeholder="MM/DD/YYYY" className="h-11" />
             </Field>
-            <Field label="Next scheduled appointment" hint="MM/DD/YYYY">
+            <Field label="Next scheduled appointment" hint="Optional — format MM/DD/YYYY">
               <Input value={nextAppointment} onChange={(e) => setNextAppointment(e.target.value)} placeholder="MM/DD/YYYY" className="h-11" />
             </Field>
           </div>
@@ -404,7 +373,7 @@ export function ProspectForm({ onDone }: { onDone: () => void }) {
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Preferred plan start date" hint="MM/DD/YYYY">
+          <Field label="Preferred plan start date" hint="Optional — format MM/DD/YYYY">
             <Input value={preferredStartDate} onChange={(e) => setPreferredStartDate(e.target.value)} placeholder="MM/DD/YYYY" className="h-11" />
           </Field>
           <div className="sm:col-span-2">

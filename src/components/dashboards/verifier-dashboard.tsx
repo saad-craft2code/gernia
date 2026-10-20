@@ -16,7 +16,7 @@ import {
 import { StatusBadge } from '@/components/shared/badges'
 import { StatCard } from '@/components/shared/stat-card'
 import { relativeTime } from '@/lib/dates'
-import { CaseDetailModal } from '@/components/shared/case-detail-modal'
+import { CaseDetailView } from '@/components/shared/case-detail-view'
 import { ReportsView } from '@/components/shared/reports-view'
 import { ProspectForm } from '@/components/dashboards/prospect-form'
 
@@ -31,7 +31,7 @@ export function VerifierDashboard() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [detailCase, setDetailCase] = useState<Case | null>(null)
-  const [view, setView] = useState<'cases' | 'reports' | 'form'>('cases')
+  const [view, setView] = useState<'cases' | 'reports' | 'form' | 'detail'>('cases')
   const [stats, setStats] = useState<{
     todayCount: number
     pendingCount: number
@@ -84,6 +84,19 @@ export function VerifierDashboard() {
       <div className="max-w-5xl mx-auto px-4 lg:px-8 py-6">
         <ProspectForm onDone={() => setView('cases')} />
       </div>
+    )
+  }
+
+  if (view === 'detail' && detailCase) {
+    return (
+      <CaseDetailView
+        caseId={detailCase.id}
+        onClose={() => setView('cases')}
+        onMutated={() => {
+          loadCases()
+          loadStats()
+        }}
+      />
     )
   }
 
@@ -159,7 +172,7 @@ export function VerifierDashboard() {
                   {cases.map((c) => (
                     <button
                       key={c.id}
-                      onClick={() => setDetailCase(c)}
+                      onClick={() => { setDetailCase(c); setView('detail') }}
                       className="w-full text-left px-6 py-4 hover:bg-stone-50 transition-colors flex items-center gap-4"
                     >
                       <div className="h-10 w-10 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
@@ -208,17 +221,6 @@ export function VerifierDashboard() {
             </CardContent>
           </Card>
         </>
-      )}
-
-      {detailCase && (
-        <CaseDetailModal
-          caseId={detailCase.id}
-          onClose={() => setDetailCase(null)}
-          onMutated={() => {
-            loadCases()
-            loadStats()
-          }}
-        />
       )}
     </div>
   )
