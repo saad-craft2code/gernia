@@ -9,22 +9,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { PhoneCall, ShieldCheck, UserCog, Loader2, AlertCircle } from 'lucide-react'
 
-const DEMO = {
-  verifier: { email: 'verifier@agus.systems', password: 'Verifier@123' },
-  agent: { email: 'la1@agus.systems', password: 'Agent@123' },
-}
+// Internal role hint shown ONLY as a visual label — no credentials revealed on screen.
+const ROLE_HINTS = {
+  verifier: {
+    icon: <ShieldCheck className="h-4 w-4" />,
+    title: 'Representative login',
+    desc: 'Capture the prospect questionnaire and transfer cases to License Agents.',
+  },
+  agent: {
+    icon: <UserCog className="h-4 w-4" />,
+    title: 'License Agent login',
+    desc: 'Receive assigned cases, handle them, and mark as resolved.',
+  },
+} as const
 
 export function LoginScreen() {
   const { login, loading, error, setError } = useAuthStore()
-  const [email, setEmail] = useState(DEMO.verifier.email)
-  const [password, setPassword] = useState(DEMO.verifier.password)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [role, setRole] = useState<'verifier' | 'agent'>('verifier')
 
   function switchRole(next: 'verifier' | 'agent') {
     setRole(next)
-    const d = next === 'verifier' ? DEMO.verifier : DEMO.agent
-    setEmail(d.email)
-    setPassword(d.password)
+    setEmail('')
+    setPassword('')
     setError(null)
   }
 
@@ -32,6 +40,8 @@ export function LoginScreen() {
     e.preventDefault()
     await login(email, password)
   }
+
+  const hint = ROLE_HINTS[role]
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -73,7 +83,7 @@ export function LoginScreen() {
               </li>
               <li className="flex items-start gap-2">
                 <PhoneCall className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" />
-                Live call timer, notes, recording upload & full audit trail.
+                Live call timer, notes, recording upload &amp; full audit trail.
               </li>
             </ul>
           </div>
@@ -89,7 +99,7 @@ export function LoginScreen() {
             <CardHeader className="space-y-2">
               <CardTitle className="text-2xl text-indigo-950">Sign in</CardTitle>
               <CardDescription>
-                Pick your role to pre-fill the demo credentials, or enter your own.
+                Select your role and enter your AGUS SYSTEMS account credentials.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -104,20 +114,10 @@ export function LoginScreen() {
                 </TabsList>
 
                 <TabsContent value="verifier" className="mt-0">
-                  <RoleHint
-                    icon={<ShieldCheck className="h-4 w-4" />}
-                    title="Representative login"
-                    desc="Fill the prospect questionnaire, pick an LA, transfer the call."
-                    creds={DEMO.verifier}
-                  />
+                  <RoleHint {...hint} />
                 </TabsContent>
                 <TabsContent value="agent" className="mt-0">
-                  <RoleHint
-                    icon={<UserCog className="h-4 w-4" />}
-                    title="License Agent login"
-                    desc="Receive prospect cases on your dashboard, handle and resolve them."
-                    creds={DEMO.agent}
-                  />
+                  <RoleHint {...hint} />
                 </TabsContent>
               </Tabs>
 
@@ -142,7 +142,7 @@ export function LoginScreen() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="••••••••••"
                     required
                     autoComplete="current-password"
                     className="h-11"
@@ -158,7 +158,7 @@ export function LoginScreen() {
 
                 <Button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !email || !password}
                   className="w-full h-11 bg-indigo-700 hover:bg-indigo-800 text-white"
                 >
                   {loading ? (
@@ -173,7 +173,7 @@ export function LoginScreen() {
               </form>
 
               <p className="text-xs text-stone-500 mt-6 text-center">
-                Demo accounts are pre-seeded. Use the tabs above to switch roles.
+                Contact your administrator if you need account credentials or a password reset.
               </p>
             </CardContent>
           </Card>
@@ -184,12 +184,11 @@ export function LoginScreen() {
 }
 
 function RoleHint({
-  icon, title, desc, creds,
+  icon, title, desc,
 }: {
   icon: React.ReactNode
   title: string
   desc: string
-  creds: { email: string; password: string }
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-stone-50 p-4">
@@ -200,9 +199,6 @@ function RoleHint({
         <div className="space-y-0.5">
           <div className="font-medium text-indigo-950">{title}</div>
           <div className="text-xs text-stone-600">{desc}</div>
-          <div className="text-xs text-stone-500 mt-1 font-mono">
-            {creds.email} · {creds.password}
-          </div>
         </div>
       </div>
     </div>
